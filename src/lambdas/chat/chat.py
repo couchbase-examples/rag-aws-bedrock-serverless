@@ -2,9 +2,12 @@ import json
 import boto3
 import os
 from dotenv import load_dotenv
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_aws.embeddings import BedrockEmbeddings
 
+from langchain_aws import ChatBedrock
+from langchain_aws.embeddings import BedrockEmbeddings
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.runnables import RunnablePassthrough
 from langchain_couchbase.vectorstores import CouchbaseVectorStore
 
 from couchbase.cluster import Cluster
@@ -46,7 +49,6 @@ def get_vector_store(
 
 
 def lambda_handler(event, context):
-
     # Load environment variables
     load_dotenv()
 
@@ -59,34 +61,46 @@ def lambda_handler(event, context):
     index_name = os.getenv('CB_INDEX_NAME')
 
     # Extract text from the event
-    text = event.get('text', '')
+    question = event.get('question', '')
 
-    if not text:
+    if not question:
         return {
             'statusCode': 400,
-            'body': json.dumps('Text input is required')
+            'body': json.dumps('Question input is required')
         }
 
     try:
-        bedrock = boto3.client('bedrock-runtime')
         cluster = connect_to_couchbase(connection_string, username, password)
+        bedrock = boto3.client('bedrock-runtime')
         embedding = BedrockEmbeddings(client=bedrock, model_id="amazon.titan-embed-image-v1")
-        cb_vector_store = get_vector_store(cluster, bucket_name, scope_name, collection_name, embedding, index_name)
+        vector_store = get_vector_store(cluster, bucket_name, scope_name, collection_name, embedding, index_name)
+        retriever = vector_store.as_retriever()
 
-        # Split text into sentences
-        text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-        text_arr = text_splitter.split_text(text)
-        print("array of text", text_arr)
-        ids = cb_vector_store.add_texts([text])
-        print(ids)
+        template = """You are a helpful bot. If you cannot answer based on the context provided, respond with a generic answer. Answer the question as truthfully as possible using the context below:
+            {context}
 
+            Question: {question}"""
+
+        prompt = ChatPromptTemplate.from_template(template)
+
+        aws_model_id = "meta.llama3-70b-instruct-v1:0"
+        llm = ChatBedrock(client=bedrock, model_id=aws_model_id)
+        # RAG chain
+        chain = (
+                {"context": retriever, "question": RunnablePassthrough()}
+                | prompt
+                | llm
+                | StrOutputParser()
+        )
+
+        output = chain.invoke(input=question)
+        print(output)
+        return {
+            'statusCode': 200,
+            'body': json.dumps(output)
+        }
     except Exception as e:
         return {
             'statusCode': 500,
-            'body': json.dumps(f'Error processing or storing data: {str(e)}')
+            'body': json.dumps(f"Error connecting to Couchbase: {str(e)}")
         }
-
-    return {
-        'statusCode': 200,
-        'body': json.dumps('Text processed, split, and stored successfully')
-    }
