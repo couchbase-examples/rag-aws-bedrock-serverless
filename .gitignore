@@ -4,3 +4,13 @@
 
 __pycache__
 .DS_Store
+
+*.swp
+package-lock.json
+.pytest_cache
+.venv
+*.egg-info
+
+# CDK asset staging directory
+.cdk.staging
+cdk.out

@@ -2,7 +2,6 @@ import json
 import boto3
 import os
 from dotenv import load_dotenv
-from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_aws.embeddings import BedrockEmbeddings
 
 from langchain_couchbase.vectorstores import CouchbaseVectorStore
@@ -21,15 +20,12 @@ def connect_to_couchbase(connection_string, username, password):
         options = ClusterOptions(auth)
         options.apply_profile("wan_development")
         cluster = Cluster(connection_string, options)
-
-        # Wait until the cluster is ready for use.
         cluster.wait_until_ready(timedelta(seconds=5))
+        logging.info("Cluster is ready")
         return cluster
     except Exception as e:
         logging.error(f'Error while connecting: {str(e)}')
-        
-        
-        
+        raise e
 
 
 def get_vector_store(
@@ -64,10 +60,8 @@ def lambda_handler(event, context):
     scope_name = os.getenv('CB_SCOPE')
     collection_name = os.getenv('CB_COLLECTION')
     index_name = os.getenv('CB_INDEX_NAME')
-    logging.info(f"Connection details: connection_string={connection_string}, username={username}, password={password}, bucket_name={bucket_name}, scope_name={scope_name}, collection_name={collection_name}, index_name={index_name}")
 
     all_messages = event['Records']
-    # Extract text from the event
 
     if not all_messages or len(all_messages) == 0:
         return {
@@ -79,23 +73,12 @@ def lambda_handler(event, context):
         bedrock = boto3.client('bedrock-runtime')
         cluster = connect_to_couchbase(connection_string, username, password)
         embedding = BedrockEmbeddings(client=bedrock, model_id="amazon.titan-embed-image-v1")
-        try:
-            cb_vector_store = get_vector_store(cluster, bucket_name, scope_name, collection_name, embedding, index_name)
-        except Exception as e:
-            logging.error(f"Error in getting langchain vector store: {str(e)}")
+        cb_vector_store = get_vector_store(cluster, bucket_name, scope_name, collection_name, embedding, index_name)
 
-        # Split text into sentences
-        text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-        all_split_texts = []
-        for message in all_messages:
-            text = message['body']
-            all_split_texts.extend(text_splitter.split_text(text))
-        logging.info(f"all split texts {str(all_split_texts)}")
-        try:
-            ids = cb_vector_store.add_texts(all_split_texts)
-        except Exception as e:
-            logging.error(f'Error while adding data: {str(e)}')
-        logging.info(ids)
+        sending_text = json.loads(all_messages[0]['body'])['text']
+        ids = json.loads(all_messages[0]['body'])['id']
+
+        cb_vector_store.add_texts([sending_text], ids=[ids])
 
     except Exception as e:
         logging.error(f'Error processing or storing data: {str(e)}')
@@ -103,6 +86,7 @@ def lambda_handler(event, context):
             'statusCode': 500,
             'body': json.dumps(f'Error processing or storing data: {str(e)}')
         }
+
     logging.info('Text processed, split, and stored successfully')
     return {
         'statusCode': 200,

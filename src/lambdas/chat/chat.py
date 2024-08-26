@@ -61,7 +61,8 @@ def lambda_handler(event, context):
     index_name = os.getenv('CB_INDEX_NAME')
 
     # Extract text from the event
-    question = event.get('question', '')
+    body = json.loads(event.get('body'))
+    question = body.get('question', '')
 
     if not question:
         return {
