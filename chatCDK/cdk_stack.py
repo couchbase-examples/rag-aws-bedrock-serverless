@@ -43,9 +43,9 @@ class CouchbaseChatStack(Stack):
         )
 
         api = apigateway.RestApi(self, "CouchbaseBedrockChatAPI",
-             rest_api_name="ChatLambdaService",
-             description="API Gateway to send question to Chat Lambda Function"
-        )
+                                 rest_api_name="ChatLambdaService",
+                                 description="API Gateway to send question to Chat Lambda Function"
+                                 )
 
         api_resource = api.root.add_resource("chat")
         lambda_integration = apigateway.LambdaIntegration(
