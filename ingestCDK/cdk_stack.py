@@ -24,7 +24,7 @@ class CouchbaseIngestStack(Stack):
         )
         
         repository = ecr.Repository.from_repository_name(
-            self, "queue-to-bedrock-to-couchbase", "queue-to-bedrock-to-couchbase"
+            self, "ingest", "ingest"
         )
         
         lambda_function = _lambda.DockerImageFunction(

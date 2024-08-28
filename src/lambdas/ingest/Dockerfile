@@ -11,4 +11,4 @@ RUN pip install -r requirements.txt
 COPY ingest.py ${LAMBDA_TASK_ROOT}
 
 # Set the CMD to your handler
-CMD [ "ingest.lambda_handler" ]
+CMD [ "queueToBedrockToCouchbase.lambda_handler" ]
