@@ -1,7 +1,7 @@
 import uuid
 
 import streamlit as st
-from langchain.document_loaders import PyPDFLoader
+from langchain_community.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 import tempfile
 import os
@@ -42,8 +42,6 @@ DB_COLLECTION = os.getenv("CB_COLLECTION")
 CHAT_URL = os.getenv("CHAT_URL")
 
 cluster = connect_to_couchbase(DB_CONN_STR, DB_USERNAME, DB_PASSWORD)
-
-print("chat_url", CHAT_URL)
 
 # File uploader for PDF
 uploaded_file = st.file_uploader("Choose a PDF file", type="pdf")

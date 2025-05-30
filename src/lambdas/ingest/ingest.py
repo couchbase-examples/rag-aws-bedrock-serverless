@@ -4,7 +4,7 @@ import os
 from dotenv import load_dotenv
 from langchain_aws.embeddings import BedrockEmbeddings
 
-from langchain_couchbase.vectorstores import CouchbaseVectorStore
+from langchain_couchbase.vectorstores import CouchbaseSearchVectorStore
 
 from couchbase.cluster import Cluster
 from couchbase.auth import PasswordAuthenticator
@@ -37,7 +37,7 @@ def get_vector_store(
     index_name,
 ):
     """Return the Couchbase vector store"""
-    vector_store = CouchbaseVectorStore(
+    vector_store = CouchbaseSearchVectorStore(
         cluster=_cluster,
         bucket_name=db_bucket,
         scope_name=db_scope,
@@ -72,7 +72,7 @@ def lambda_handler(event, context):
     try:
         bedrock = boto3.client('bedrock-runtime')
         cluster = connect_to_couchbase(connection_string, username, password)
-        embedding = BedrockEmbeddings(client=bedrock, model_id="amazon.titan-embed-image-v1")
+        embedding = BedrockEmbeddings(client=bedrock, model_id="amazon.titan-embed-text-v2:0")
         cb_vector_store = get_vector_store(cluster, bucket_name, scope_name, collection_name, embedding, index_name)
 
         sending_text = json.loads(all_messages[0]['body'])['text']
