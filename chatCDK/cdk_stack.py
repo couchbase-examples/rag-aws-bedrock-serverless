@@ -38,7 +38,7 @@ class CouchbaseChatStack(Stack):
         lambda_function.add_to_role_policy(
             iam.PolicyStatement(
                 actions=["bedrock:InvokeModel"],
-                resources=["arn:aws:bedrock:ap-south-1::*"]
+                resources=["arn:aws:bedrock:us-east-1::*"]
             )
         )
 

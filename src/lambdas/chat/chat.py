@@ -8,7 +8,7 @@ from langchain_aws.embeddings import BedrockEmbeddings
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnablePassthrough
-from langchain_couchbase.vectorstores import CouchbaseVectorStore
+from langchain_couchbase.vectorstores import CouchbaseSearchVectorStore
 
 from couchbase.cluster import Cluster
 from couchbase.auth import PasswordAuthenticator
@@ -37,7 +37,7 @@ def get_vector_store(
     index_name,
 ):
     """Return the Couchbase vector store"""
-    vector_store = CouchbaseVectorStore(
+    vector_store = CouchbaseSearchVectorStore(
         cluster=_cluster,
         bucket_name=db_bucket,
         scope_name=db_scope,
@@ -73,7 +73,7 @@ def lambda_handler(event, context):
     try:
         cluster = connect_to_couchbase(connection_string, username, password)
         bedrock = boto3.client('bedrock-runtime')
-        embedding = BedrockEmbeddings(client=bedrock, model_id="amazon.titan-embed-image-v1")
+        embedding = BedrockEmbeddings(client=bedrock, model_id="amazon.titan-embed-text-v2:0")
         vector_store = get_vector_store(cluster, bucket_name, scope_name, collection_name, embedding, index_name)
         retriever = vector_store.as_retriever()
 
@@ -83,7 +83,7 @@ def lambda_handler(event, context):
             Question: {question}"""
 
         prompt = ChatPromptTemplate.from_template(template)
-
+        
         aws_model_id = "meta.llama3-70b-instruct-v1:0"
         llm = ChatBedrock(client=bedrock, model_id=aws_model_id)
         # RAG chain
