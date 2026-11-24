@@ -48,6 +48,22 @@ def get_vector_store(
     return vector_store
 
 
+def parse_records(records):
+    """Turn SQS records into parallel (texts, ids) lists for the vector store.
+
+    Each record body is the JSON payload posted by the Couchbase Eventing
+    function: the source document plus its ``id``. The SQS event source mapping
+    delivers up to ``batch_size`` records per invocation, so every record must
+    be parsed; a successful return deletes the whole batch from the queue.
+    """
+    texts, ids = [], []
+    for record in records:
+        body = json.loads(record['body'])
+        texts.append(body['text'])
+        ids.append(body['id'])
+    return texts, ids
+
+
 def lambda_handler(event, context):
 
     # Load environment variables
@@ -61,7 +77,7 @@ def lambda_handler(event, context):
     collection_name = os.getenv('CB_COLLECTION')
     index_name = os.getenv('CB_INDEX_NAME')
 
-    all_messages = event['Records']
+    all_messages = event.get('Records')
 
     if not all_messages or len(all_messages) == 0:
         return {
@@ -75,10 +91,9 @@ def lambda_handler(event, context):
         embedding = BedrockEmbeddings(client=bedrock, model_id="amazon.titan-embed-text-v2:0")
         cb_vector_store = get_vector_store(cluster, bucket_name, scope_name, collection_name, embedding, index_name)
 
-        sending_text = json.loads(all_messages[0]['body'])['text']
-        ids = json.loads(all_messages[0]['body'])['id']
-
-        cb_vector_store.add_texts([sending_text], ids=[ids])
+        texts, ids = parse_records(all_messages)
+        cb_vector_store.add_texts(texts, ids=ids)
+        logging.info(f'Stored {len(texts)} record(s)')
 
     except Exception as e:
         logging.error(f'Error processing or storing data: {str(e)}')
