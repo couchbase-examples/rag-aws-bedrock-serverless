@@ -46,6 +46,15 @@ This command will provision all the necessary AWS resources.
 *   `app.py`: Main AWS CDK application file that synthesizes the stacks.
 *   `cdk.json`: CDK configuration file.
 
+## Tests
+
+The ingest Lambda's SQS batch handling is covered by unit tests that need no AWS or Couchbase access:
+
+```bash
+pip install -r src/lambdas/ingest/requirements.txt pytest
+pytest tests
+```
+
 ## Usage
 
 1.  **Upload PDFs:** Use the provided mechanism to ingest PDF documents. The ingestion pipeline will process these documents, generate embeddings, and store them.
